@@ -1,4 +1,4 @@
-Const DEFAULT_VBS_OPEN_COMMAND_KEY =	"HKLM\SOFTWARE\Classes\vbsfile\shell\open\command\"
+Const DEFAULT_VBS_OPEN_COMMAND_KEY =	"HKLM\SOFTWARE\Classes\vbsfile\shell\open\command"
 Const CUSTOM_VBS_OPEN_COMMAND_VALUE =	"""%SystemRoot%\SysWow64\wscript.exe"" ""%1"" %*"
 
 Call Main()
@@ -18,11 +18,11 @@ Sub Main() '主函数，强制程序以32位WScript.exe解释执行
 End Sub
 
 Function X86orX64() '判断是X86架构还是X64架构
-	Dim objFileSystem
-	Set objFileSystem = wscript.createobject("scripting.filesystemobject")
+	Dim objFileSystem, systemRootPath
+	Set objFileSystem = CreateObject("Scripting.FileSystemObject")
 	X86orX64 = "X86"
 	systemRootPath = objFileSystem.GetSpecialFolder(0) & "\" 
-	If objFileSystem.folderexists(systemRootPath & "SysWow64") Then
+	If objFileSystem.FolderExists(systemRootPath & "SysWow64") Then
 		X86orX64 = "X64"
 	End if
 End Function

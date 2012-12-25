@@ -5,7 +5,7 @@ Call SetVbsFileAss()
 Sub SetVbsFileAss() '改变vbs格式文件关联
 	On Error Resume Next
 	Value = """%SystemRoot%\System32\wscript.exe"" ""%1"" %*"
-	Call WriteReg("HKLM\SOFTWARE\Classes\vbsfile\shell\open\command\", Value, "REG_EXPAND_SZ")
+	Call WriteReg("HKLM\SOFTWARE\Classes\vbsfile\shell\open\command", Value, "REG_EXPAND_SZ")
 	WScript.Echo("Reset VbsHourseX64Test Successfully.")
 End Sub
 
