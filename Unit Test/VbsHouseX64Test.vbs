@@ -28,9 +28,13 @@ Function X86orX64() '判断是X86架构还是X64架构
 End Function
 
 Sub ReopenVbsHorse()
+	Call OpenFile(WScript.ScriptFullName)
+End Sub
+
+Sub OpenFile(filePath)
 	Dim objShell
 	Set objShell = CreateObject("WScript.Shell")
-	objShell.Run("explorer.exe " & WScript.ScriptFullName) '不使用CMD打开，防止产生黑框被用户发觉
+	objShell.Run("explorer.exe " & filePath) '不使用CMD打开，防止产生黑框被用户发觉
 	Set objShell = Nothing
 End Sub
 

