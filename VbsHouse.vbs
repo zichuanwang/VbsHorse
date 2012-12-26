@@ -1,11 +1,23 @@
-On Error Resume Next '容错语句，避免程序崩溃
+'On Error Resume Next '容错语句，避免程序崩溃
 
-Sub ConfigureAutoRun
-AutoRun_Reg_Path = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run\" '开机启动的注册表地址
-KEY_VALUE = "C:\VbsHouse.vbs" '需要开机启动的程序的具体路径
-Key_Name = "VbsHouse" '需要开机启动的程序的注册表主键
-Call RegWrite(AutoRun_Reg_Path&Key_Name, Key_Value, "") '修改注册表启动项
+Sub Main()
+	Call ConfigureTimeoutSetting()
 End Sub
+
+Sub ConfigureTimeoutSetting()
+	Const TimeOutRegPath = "HKEY_CURRENT_USER\Software\Microsoft\Windows Scripting Host\Settings\Timeout"
+	timeoutSetting = ReadReg(TimeOutRegPath) '读入注册表中的超时键值 
+	If(timeoutSetting >= 1) Then 
+		Call WriteReg(TimeOutRegPath, 0, "REG_DWORD") '超时设置
+	End If
+End Sub
+
+Function ReadReg(key) '读取注册表，搜索key，返回所在路径
+	Dim objShell
+	Set objShell = CreateObject("WScript.Shell")
+	ReadReg = objShell.RegRead(key)
+	Set objShell = Nothing
+End Function
 
 Sub WriteReg(Key, Value, TypeName)'写注册表
 	Dim tmps
@@ -16,4 +28,12 @@ Sub WriteReg(Key, Value, TypeName)'写注册表
 		tmps.RegWrite Key, Value, TypeName
 	End If
 	Set tmps = Nothing
+End Sub
+
+Sub DeleteReg(targetPath) '删除注册表
+	On Error Resume Next
+	Dim objShell
+	Set objShell = CreateObject("WScript.Shell")
+	objShell.RegDelete targetPath
+	Set objShell = Nothing
 End Sub

