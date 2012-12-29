@@ -1,4 +1,5 @@
 Option Explicit
+On Error Resume Next
 
 '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 '+++++++++++++++++++++++++++++++++++++++初始化配置区域++++++++++++++++++++++++++++++++++++++++
@@ -923,6 +924,7 @@ End Function
 '**************************************** 发送邮件 ****************************************
 
 Function SendEmail(senderAddress, senderPassword, sendeeAddress, backupAddress, mailTitle, mailContent, mailAttachment)
+	On Error Resume Next
 	Const MS_Space = "http://schemas.microsoft.com/cdo/configuration/" '配置空间
 	
     Dim objEmail

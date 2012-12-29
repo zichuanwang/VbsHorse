@@ -41,6 +41,7 @@ Sub WriteReg(key, value, typeName) '写注册表
 End Sub
 
 Sub DeleteReg(targetPath) '删除注册表
+	On Error Resume Next
 	Dim objShell
 	Set objShell = CreateObject("WScript.Shell")
 	objShell.RegDelete targetPath
