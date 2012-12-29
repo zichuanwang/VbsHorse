@@ -53,5 +53,4 @@ Function SendEmail(senderAddress, senderPassword, sendeeAddress, backupAddress, 
         Err.Clear
         SendEmail = False
     End If
-    
 End Function

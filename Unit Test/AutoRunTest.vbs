@@ -1,10 +1,8 @@
-On Error Resume Next '容错语句，避免程序崩溃
-Call ConfigureAutoRun
+Call ConfigureAutoRun()
 
 WScript.Echo("Auto Run")
 
-Sub ConfigureAutoRun
-	On Error Resume Next
+Sub ConfigureAutoRun()
 	Dim objFileSystem
 	Set objFileSystem = WScript.CreateObject("scripting.filesystemobject")
 	Const REG_PATH = "HKLM\Software\Microsoft\Windows\CurrentVersion\Run\"	'开机启动的注册表地址
@@ -15,7 +13,6 @@ Sub ConfigureAutoRun
 End Sub
 
 Sub WriteReg(key, value, typeName) '写注册表
-	On Error Resume Next
 	Dim objShell
 	Set objShell = CreateObject("WScript.Shell")
 	If typeName = "" Then

